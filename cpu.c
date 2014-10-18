@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -21,19 +22,27 @@ typedef struct cpu_st{
 	int online;
 } Cpu;
 
+typedef struct stat_st{
+	unsigned long long int total_tick;
+	unsigned long long int total_tick_old;
+	unsigned long long int idle;
+	unsigned long long int idle_old;
+} Stat;
 
 char sysfs_path[] = "/sys/devices/system/cpu/cpu";
 
-Cpu cpu;
+Cpu main_cpu;
 Cpu cores[CPU_COUNT];
+
+Stat *stats;
 
 int down_delay = DOWN_DELAY;
 int up_delay = 1;
 
-void print_cpu_state(){
+void print_cpu_state(double load){
 	system("clear");
 	printf("======================================\n");
-	printf("=         cpu load : %-16.2lf=\n", cpu.load);
+	printf("=         cpu load : %-16.2lf=\n", load);
 	printf("=------------------------------------=\n");
 	printf("=          [ %d  %d  %d  %d ]            =\n", cores[0].online, cores[1].online, cores[2].online, cores[3].online);
 	printf("======================================\n");
@@ -137,12 +146,52 @@ int read_fields (FILE *fp, unsigned long long int *fields)
 	return 1;
 }
 
-void *get_load(void *a_cpu){
+double get_load(FILE *fp, void *a_cpu){
 
-	FILE *fp;
-	unsigned long long int fields[10], total_tick, total_tick_old, idle, idle_old, del_total_tick, del_idle;
-	int update_cycle = 0, i, flag = 1;
+	unsigned long long int fields[10],del_total_tick, del_idle;
+	int update_cycle = 0, i;
 	Cpu *cpu = (Cpu *) a_cpu;
+
+	fseek (fp, 0, SEEK_SET);
+	fflush (fp);
+	if (!read_fields (fp, fields))
+	{ return; }
+
+	for (i=0, stats->total_tick = 0; i<10; i++)
+	{ stats->total_tick += fields[i]; }
+	stats->idle = fields[3]; /* idle ticks index */
+
+	del_total_tick = stats->total_tick - stats->total_tick_old;
+	del_idle = stats->idle - stats->idle_old;
+
+	stats->total_tick_old = stats->total_tick;
+	stats->idle_old = stats->idle;
+
+	return ((del_total_tick - del_idle) / (double) del_total_tick) * 100; /* 3 is index of idle time */
+
+}
+
+int main(int argc, char **argv){
+	int err;
+	int i;
+	double load;
+	int flag = 1;
+	FILE *fp;
+	main_cpu = (Cpu) {
+		0,
+			0,
+			CPU_ONLINE
+	};
+
+	stats =  malloc(sizeof(Stat));
+
+	for(i = 0; i < CPU_COUNT; i++){
+		cores[i] = (Cpu) {
+			.cpu = i,
+				.load = 0,
+				.online = CPU_ONLINE
+		};
+	}
 
 	fp = fopen ("/proc/stat", "r");
 	if (fp == NULL)
@@ -151,35 +200,11 @@ void *get_load(void *a_cpu){
 		return;
 	}
 
-
-	if (!read_fields (fp, fields))
-	{ return; }
-
-	for (i=0, total_tick = 0; i<10; i++)
-	{ total_tick += fields[i]; }
-	idle = fields[3]; /* idle ticks index */
-
 	while (flag)
 	{
-		usleep (TIME_INTERVAL);
-		total_tick_old = total_tick;
-		idle_old = idle;
+		load = get_load(fp, &main_cpu);
 
-		fseek (fp, 0, SEEK_SET);
-		fflush (fp);
-		if (!read_fields (fp, fields))
-		{ return; }
-
-		for (i=0, total_tick = 0; i<10; i++)
-		{ total_tick += fields[i]; }
-		idle = fields[3];
-
-		del_total_tick = total_tick - total_tick_old;
-		del_idle = idle - idle_old;
-
-		cpu->load = ((del_total_tick - del_idle) / (double) del_total_tick) * 100; /* 3 is index of idle time */
-
-		if(cpu->load < DOWN_THRESHOLD){
+		if(load < DOWN_THRESHOLD){
 			if(down_delay){
 				down_delay--;
 			} else {
@@ -188,7 +213,7 @@ void *get_load(void *a_cpu){
 			}
 		}
 
-		if(cpu->load > UP_THRESHOLD){
+		if(load > UP_THRESHOLD){
 			if(up_delay){
 				up_delay = 0;
 			} else {
@@ -202,37 +227,12 @@ void *get_load(void *a_cpu){
 			}
 		}
 
-		//  		printf ("Total CPU Usage: %3.2lf%%\n", cpu->load);
 		if(DEBUGING_SCREEN){
-			print_cpu_state();
+			print_cpu_state(load);
 		}
-		update_cycle++;
+
+		usleep(TIME_INTERVAL);
 	}
-
-
-	fclose (fp); /* Ctrl + C quit, therefore this will not be reached. We rely on the kernel to close this file */
-
-	return;
-}
-
-int main(int argc, char **argv){
-	int err;
-	int i;
-	cpu = (Cpu) {
-		0,
-			0,
-			CPU_ONLINE
-	};
-
-	for(i = 0; i < CPU_COUNT; i++){
-		cores[i] = (Cpu) {
-			.cpu = i,
-				.load = 0,
-				.online = CPU_ONLINE
-		};
-	}
-
-	get_load(&cpu);
 }
 
 
