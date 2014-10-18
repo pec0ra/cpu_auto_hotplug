@@ -40,6 +40,7 @@ int down_delay = DOWN_DELAY;
 int up_delay = 1;
 
 void print_cpu_state(double load){
+	/* Print the cpu information */
 	system("clear");
 	printf("======================================\n");
 	printf("=         cpu load : %-16.2lf=\n", load);
@@ -49,6 +50,7 @@ void print_cpu_state(double load){
 }
 
 void cpu_off(Cpu * cpu){
+	/* Put the core of `cpu' offline */
 	FILE *fp;
 	char path[PATH_SIZE];
 	char cpu_number[1];
@@ -73,6 +75,7 @@ void cpu_off(Cpu * cpu){
 	return;
 }
 void cpu_on(Cpu * cpu){
+	/* Put the core of `cpu' online */
 	FILE *fp;
 	char path[PATH_SIZE];
 	char cpu_number[1];
@@ -99,6 +102,7 @@ void cpu_on(Cpu * cpu){
 }
 
 void unplug(){
+	/* Look for an online cpu and put it offline */
 	int i;
 	for(i = CPU_COUNT - 1; i > 0; i--){
 		if(cores[i].online){
@@ -109,6 +113,7 @@ void unplug(){
 	return;
 }
 void plug(){
+	/* Look for an offline cpu and put it online */
 	int i;
 	for(i = 1; i < CPU_COUNT; i++){
 		if(!cores[i].online){
@@ -120,6 +125,7 @@ void plug(){
 }
 
 int read_fields (FILE *fp, unsigned long long int *fields)
+	/* Reads the fields of the stat file `fp' and put its content into `fields' */
 {
 	int retval;
 	char buffer[BUF_MAX];
@@ -147,6 +153,7 @@ int read_fields (FILE *fp, unsigned long long int *fields)
 }
 
 double get_load(FILE *fp, void *a_cpu){
+	/* Returns the cpu load between this function call and the previous call of this function */
 
 	unsigned long long int fields[10],del_total_tick, del_idle;
 	int update_cycle = 0, i;
