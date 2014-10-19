@@ -36,8 +36,16 @@ debug: clean $(FILES)
 	$(CC) $(CFLAGS) -g -o $@ $(FILES)
 
 install:
-	cp cpu_auto_hotplug /usr/local/bin/
 	cp cpu_info /usr/local/bin/
-
+	cp cpu_auto_hotplug /usr/sbin/
+	cp cpu_auto_hotplug_daemon /etc/init.d/
+	chmod +x /etc/init.d/cpu_auto_hotplug_daemon
+	update-rc.d -f cpu_auto_hotplug_daemon remove
+	update-rc.d cpu_auto_hotplug_daemon defaults
+uninstall: 
+	rm /usr/local/bin/cpu_info
+	rm /usr/sbin/cpu_auto_hotplug
+	update-rc.d -f cpu_auto_hotplug_daemon remove
+	rm /etc/init.d/cpu_auto_hotplug_daemon 
 clean:
 	rm -f *.o *~ cpu_info cpu_auto_hotplug debug

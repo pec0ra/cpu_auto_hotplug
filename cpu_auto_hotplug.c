@@ -17,10 +17,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <unistd.h>
+#include <stdio.h>
 #include "cpu.h"
 
 int main(int argc, char **argv){
-	run();
 
+	if(geteuid() != 0)
+	{
+		printf("Error : Cpu auto hotplug must be run as root !\n");
+		return 0;
+	}
+	if(!daemon(0, 0)){
+		run();
+	} else {
+		printf("Failed to start daemon");
+	}
 	return 1;
 }
