@@ -8,17 +8,24 @@ Installation
 ------------
 
 Compile cpu auto hotplug with the command :
-		make
+```
+make
+```
 
 Then run as root the command :
-		make install
+```
+make install
+```
 
 To uninstall enter the command as root :
-		make uninstall
-
+```
+make uninstall
+```
 
 Usage
 -----
 
 After installation, the program is set run automatically at boot. You can start it manually with the command :
-		service cpu_auto_hotplug_daemon start
+```
+service cpu_auto_hotplug_daemon start
+```
