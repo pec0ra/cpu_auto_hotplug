@@ -108,7 +108,7 @@ void termination_handler (int signum)
 	exit(signum);
 }
 
-int main(int argc, char **argv){
+int run(){
 	int i;
 	double load;
 	int flag = 1;
@@ -179,5 +179,4 @@ int main(int argc, char **argv){
 	}
 	return 1;
 }
-
 

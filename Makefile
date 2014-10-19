@@ -21,18 +21,23 @@ CC=gcc
 CFLAGS = -Wall
 FILES=cpu.c cpu_io.c
 
-all: cpu_auto_hotplug
+all: cpu_auto_hotplug cpu_info
 
-cpu_auto_hotplug: $(FILES)
-	$(CC)  $(CFLAGS) -o $@ $(FILES)
+cpu_auto_hotplug: cpu_auto_hotplug.c $(FILES)
+	$(CC)  $(CFLAGS) -o $@ $@.c $(FILES)
 
-rebuild: clean cpu_auto_hotplug
+cpu_info: cpu_info.c $(FILES)
+	$(CC)  $(CFLAGS) -o $@ $@.c $(FILES)
+
+
+rebuild: clean all
 
 debug: clean $(FILES)
 	$(CC) $(CFLAGS) -g -o $@ $(FILES)
 
 install:
 	cp cpu_auto_hotplug /usr/local/bin/
+	cp cpu_info /usr/local/bin/
 
 clean:
-	rm -f *.o *~ cpu_auto_hotplug debug
+	rm -f *.o *~ cpu_info cpu_auto_hotplug debug

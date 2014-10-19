@@ -2,4 +2,5 @@
 *~
 *.out
 cpu_auto_hotplug
+cpu_info
 debug

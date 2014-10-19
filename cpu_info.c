@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2014, Basile Maret <basile.maret@gmail.com>
  *
@@ -17,27 +18,30 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include <stdio.h>
+#include <unistd.h>
+#include "cpu.h"
+#include "cpu_io.h"
 
-#ifndef __FILE_CPU_H
-#define __FILE_CPU_H
+#define TIME_INTERVAL_INFO 	500000
 
-#define CPU_ONLINE		1
-#define CPU_OFFLINE		0
-#define CPU_COUNT		4
+int main(int argc, char **argv){
+	int i;
+	int flag = 1;
+	Cpu cores[CPU_COUNT];
 
-typedef struct cpu_st{
-	int cpu;
-	double load;
-	int online;
-} Cpu;
+	for(i = 0; i < CPU_COUNT; i++){
+		cores[i] = (Cpu) {
+			.cpu = i,
+				.load = 0,
+				.online = CPU_ONLINE
+		};
+	}
 
-typedef struct stat_st{
-	unsigned long long int total_tick;
-	unsigned long long int total_tick_old;
-	unsigned long long int idle;
-	unsigned long long int idle_old;
-} Stat;
-
-int run();
-
-#endif // __FILE_CPU_H
+	while(flag){
+		update_cpu_status(cores);
+		print_cpu_state(cores, 0);
+		usleep(TIME_INTERVAL_INFO);
+	}
+	return 1;
+}

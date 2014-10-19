@@ -17,27 +17,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#include "cpu.h"
 
-#ifndef __FILE_CPU_H
-#define __FILE_CPU_H
+int main(int argc, char **argv){
+	run();
 
-#define CPU_ONLINE		1
-#define CPU_OFFLINE		0
-#define CPU_COUNT		4
-
-typedef struct cpu_st{
-	int cpu;
-	double load;
-	int online;
-} Cpu;
-
-typedef struct stat_st{
-	unsigned long long int total_tick;
-	unsigned long long int total_tick_old;
-	unsigned long long int idle;
-	unsigned long long int idle_old;
-} Stat;
-
-int run();
-
-#endif // __FILE_CPU_H
+	return 1;
+}
