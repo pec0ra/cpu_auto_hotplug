@@ -1,4 +1,5 @@
 *.swp
 *~
 *.out
-cpu
+cpu_auto_hotplug
+debug

@@ -1,7 +1,9 @@
 /*
  * Copyright (c) 2014, Basile Maret <basile.maret@gmail.com>
  *
- * This program is free software; you can redistribute it and/or modify
+ * This file is part of cpu auto hotplug
+ *
+ * Cpu auto hotplug is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
@@ -19,112 +21,36 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include <signal.h>
+#include "cpu_io.h"
 
-#define BUF_MAX			1024
-#define PATH_SIZE		900
 #define TIME_INTERVAL		100000		/* in usec */
-#define CPU_COUNT		4
-
-#define CPU_ONLINE		1
-#define CPU_OFFLINE		0
 
 #define DOWN_THRESHOLD		15		/* in percent */
 #define UP_THRESHOLD		70
 #define DOWN_DELAY		3		/* times TIME_INTERVAL */
 
-#define DEBUGING_SCREEN		1
-
-typedef struct cpu_st{
-	int cpu;
-	double load;
-	int online;
-} Cpu;
-
-typedef struct stat_st{
-	unsigned long long int total_tick;
-	unsigned long long int total_tick_old;
-	unsigned long long int idle;
-	unsigned long long int idle_old;
-} Stat;
-
-char sysfs_path[] = "/sys/devices/system/cpu/cpu";
-
-Cpu main_cpu;
-Cpu cores[CPU_COUNT];
-
-Stat *stats;
-
-int down_delay = DOWN_DELAY;
-int up_delay = 1;
-
-void print_cpu_state(double load){
-	/* Print the cpu information */
-	system("clear");
-	printf("======================================\n");
-	printf("=         cpu load : %-16.2lf=\n", load);
-	printf("=------------------------------------=\n");
-	printf("=          [ %d  %d  %d  %d ]            =\n", cores[0].online, cores[1].online, cores[2].online, cores[3].online);
-	printf("======================================\n");
-}
-
-void cpu_off(Cpu * cpu){
-	/* Put the core of `cpu' offline */
-	FILE *fp;
-	char path[PATH_SIZE];
-	char cpu_number[1];
-
-	sprintf(cpu_number, "%d", cpu->cpu);
-
-	strcpy(path, sysfs_path);
-	strcat(path, cpu_number);
-	strcat(path, "/online");
-
-	fp = fopen (path, "w");
-	if (fp == NULL)
-	{
-		perror ("Error");
-		return;
-	}
-
-	fprintf(fp, "%d", CPU_OFFLINE);
-	cpu->online = CPU_OFFLINE;
-
-	fclose(fp);
-	return;
-}
-void cpu_on(Cpu * cpu){
-	/* Put the core of `cpu' online */
-	FILE *fp;
-	char path[PATH_SIZE];
-	char cpu_number[1];
-
-	sprintf(cpu_number, "%d", cpu->cpu);
-
-	strcpy(path, sysfs_path);
-	strcat(path, cpu_number);
-	strcat(path, "/online");
-
-	fp = fopen (path, "w");
-	if (fp == NULL)
-	{
-		perror ("Error");
-		return;
-	}
-
-	fprintf(fp, "%d", CPU_ONLINE);
-	cpu->online = CPU_ONLINE;
+#define DEBUGING_SCREEN		0
 
 
-	fclose(fp);
-	return;
-}
+
+static Cpu main_cpu;
+static Cpu cores[CPU_COUNT];
+
+static Stat *stats;
+
+static int down_delay = DOWN_DELAY;
+static int up_delay = 1;
+
+static FILE *fp;
 
 void unplug(){
 	/* Look for an online cpu and put it offline */
 	int i;
 	for(i = CPU_COUNT - 1; i > 0; i--){
 		if(cores[i].online){
-			cpu_off(&cores[i]);
+			cpu_off(cores, &cores[i]);
 			break;
 		}
 	}
@@ -135,52 +61,24 @@ void plug(){
 	int i;
 	for(i = 1; i < CPU_COUNT; i++){
 		if(!cores[i].online){
-			cpu_on(&cores[i]);
+			cpu_on(cores, &cores[i]);
 			break;
 		}
 	}
 	return;
 }
 
-int read_fields (FILE *fp, unsigned long long int *fields)
-	/* Reads the fields of the stat file `fp' and put its content into `fields' */
-{
-	int retval;
-	char buffer[BUF_MAX];
-
-
-	if (!fgets (buffer, BUF_MAX, fp))
-	{ perror ("Error"); }
-	retval = sscanf (buffer, "cpu %Lu %Lu %Lu %Lu %Lu %Lu %Lu %Lu %Lu %Lu",
-			&fields[0],
-			&fields[1],
-			&fields[2],
-			&fields[3],
-			&fields[4],
-			&fields[5],
-			&fields[6],
-			&fields[7],
-			&fields[8],
-			&fields[9]);
-	if (retval < 4) /* Atleast 4 fields is to be read */
-	{
-		fprintf (stderr, "Error reading /proc/stat cpu field\n");
-		return 0;
-	}
-	return 1;
-}
 
 double get_load(FILE *fp, void *a_cpu){
 	/* Returns the cpu load between this function call and the previous call of this function */
 
 	unsigned long long int fields[10],del_total_tick, del_idle;
-	int update_cycle = 0, i;
-	Cpu *cpu = (Cpu *) a_cpu;
+	int i;
 
 	fseek (fp, 0, SEEK_SET);
 	fflush (fp);
 	if (!read_fields (fp, fields))
-	{ return; }
+	{ return 0; }
 
 	for (i=0, stats->total_tick = 0; i<10; i++)
 	{ stats->total_tick += fields[i]; }
@@ -196,12 +94,32 @@ double get_load(FILE *fp, void *a_cpu){
 
 }
 
+void termination_handler (int signum)
+{
+	int i;
+	for(i = 1; i < CPU_COUNT; i++){
+		cpu_on(cores, &cores[i]);
+	}
+	free(stats);
+	fclose(fp);
+	if(DEBUGING_SCREEN){
+		printf("program terminated\n");
+	}
+	exit(signum);
+}
+
 int main(int argc, char **argv){
-	int err;
 	int i;
 	double load;
 	int flag = 1;
-	FILE *fp;
+
+	if (signal (SIGINT, termination_handler) == SIG_IGN)
+		signal (SIGINT, SIG_IGN);
+	if (signal (SIGHUP, termination_handler) == SIG_IGN)
+		signal (SIGHUP, SIG_IGN);
+	if (signal (SIGTERM, termination_handler) == SIG_IGN)
+		signal (SIGTERM, SIG_IGN);
+
 	main_cpu = (Cpu) {
 		0,
 			0,
@@ -217,12 +135,13 @@ int main(int argc, char **argv){
 				.online = CPU_ONLINE
 		};
 	}
+	update_cpu_status(cores);
 
 	fp = fopen ("/proc/stat", "r");
 	if (fp == NULL)
 	{
 		perror ("Error");
-		return;
+		return 0;
 	}
 
 	while (flag)
@@ -253,11 +172,12 @@ int main(int argc, char **argv){
 		}
 
 		if(DEBUGING_SCREEN){
-			print_cpu_state(load);
+			print_cpu_state(cores, load);
 		}
 
 		usleep(TIME_INTERVAL);
 	}
+	return 1;
 }
 
 
