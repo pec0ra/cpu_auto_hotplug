@@ -34,8 +34,6 @@
 #define DEBUGING_SCREEN		0
 
 
-
-static Cpu main_cpu;
 static Cpu cores[CPU_COUNT];
 
 static Stat *stats;
@@ -69,7 +67,7 @@ void plug(){
 }
 
 
-double get_load(FILE *fp, void *a_cpu){
+double get_load(FILE *fp, Stat *stats){
 	/* Returns the cpu load between this function call and the previous call of this function */
 
 	unsigned long long int fields[10],del_total_tick, del_idle;
@@ -94,7 +92,7 @@ double get_load(FILE *fp, void *a_cpu){
 
 }
 
-void termination_handler (int signum)
+static void termination_handler (int signum)
 {
 	int i;
 	for(i = 1; i < CPU_COUNT; i++){
@@ -120,12 +118,6 @@ int run(){
 	if (signal (SIGTERM, termination_handler) == SIG_IGN)
 		signal (SIGTERM, SIG_IGN);
 
-	main_cpu = (Cpu) {
-		0,
-			0,
-			CPU_ONLINE
-	};
-
 	stats =  malloc(sizeof(Stat));
 
 	for(i = 0; i < CPU_COUNT; i++){
@@ -146,7 +138,7 @@ int run(){
 
 	while (flag)
 	{
-		load = get_load(fp, &main_cpu);
+		load = get_load(fp, stats);
 
 		if(load < DOWN_THRESHOLD){
 			if(down_delay){

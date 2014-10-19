@@ -38,6 +38,8 @@ typedef struct stat_st{
 	unsigned long long int idle_old;
 } Stat;
 
+
 int run();
+double get_load(FILE *fp, Stat *stats);
 
 #endif // __FILE_CPU_H
