@@ -3,6 +3,10 @@ Cpu auto hotplug
 
 Small program that disables some cores of the cpu depending on its load.
 
+Warning
+-------
+
+Since modern cpus have some "sleep" states in which the idle cores drain almost no power, this program will probably not have any effect, or even drain battery.
 
 Installation
 ------------
